@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>유니폼 트래커</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+</head>
+<body>
+
+<header class="board">
+  <div class="board__mark">UNIFORM TRACKER</div>
+
+  <div class="board__score">
+    <span id="count" class="board__count">{{ count }}</span>
+    <span class="board__count-label">벌 조건 충족<br><small>축구팀 유니폼 · S/M/L 재고 있음</small></span>
+  </div>
+
+  <div class="board__sites" id="sites">
+    {% for site, done in sites_done.items() %}
+      <span class="pill {{ 'pill--done' if done else 'pill--live' }}" data-site="{{ site }}">
+        {{ site }} · {{ '완료' if done else '수집중' }}
+      </span>
+    {% endfor %}
+    {% if not sites_done %}
+      <span class="pill">아직 수집 실행 전이에요 — main.py를 먼저 돌려주세요</span>
+    {% endif %}
+  </div>
+
+  <div class="board__updated">
+    마지막 갱신 <span id="updated-at">{{ generated_at or '-' }}</span>
+  </div>
+</header>
+
+<section class="controls">
+  <input id="search" type="search" placeholder="상품명 검색">
+
+  <select id="site-filter">
+    <option value="">모든 사이트</option>
+    {% for site in sites %}
+      <option value="{{ site }}">{{ site }}</option>
+    {% endfor %}
+  </select>
+
+  <input id="max-price" type="number" min="0" placeholder="최대 가격">
+
+  <div class="controls__right">
+    <button id="collect-now" type="button" {{ 'disabled' if collection_status.status == 'running' else '' }}>
+      {{ '수집 중…' if collection_status.status == 'running' else '지금 수집하기' }}
+    </button>
+    <span id="collect-status" class="status-text"></span>
+
+    <button id="download-md" type="button">MD로 저장</button>
+    <button id="download-json" type="button">JSON으로 저장</button>
+
+    <label class="switch">
+      <input type="checkbox" id="notify-toggle" {{ 'checked' if notify.enabled else '' }}>
+      <span>새 상품 Discord 알림</span>
+    </label>
+    <input id="notify-ceiling" type="number" min="0" placeholder="가격 상한 (선택)"
+           value="{{ notify.price_ceiling if notify.price_ceiling is not none else '' }}">
+  </div>
+</section>
+
+<main>
+  <div class="sheet-wrap">
+    <table class="sheet">
+      <thead>
+        <tr>
+          <th class="col-img"></th>
+          <th>상품</th>
+          <th>사이트</th>
+          <th>사이즈</th>
+          <th class="col-price">가격</th>
+          <th class="col-link"></th>
+        </tr>
+      </thead>
+      <tbody id="sheet-body">
+        {% for item in items %}
+        <tr>
+          <td class="col-img">{% if item.image %}<img src="{{ item.image }}" loading="lazy" alt="">{% endif %}</td>
+          <td class="col-title">{{ item.title }}</td>
+          <td><span class="tag">{{ item.site }}</span></td>
+          <td class="col-sizes">
+            {% for s in item.sizes_in_stock %}<span class="size-chip">{{ s }}</span>{% endfor %}
+          </td>
+          <td class="col-price">{{ "%.2f"|format(item.price) }} {{ item.currency }}</td>
+          <td class="col-link"><a href="{{ item.url }}" target="_blank" rel="noopener">보러가기</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <p class="empty" id="empty-state" {{ '' if not items else 'hidden' }}>
+    조건에 맞는 상품이 아직 없어요. 수집이 끝나면 여기 나타납니다.
+  </p>
+</main>
+
+<script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+</body>
+</html>

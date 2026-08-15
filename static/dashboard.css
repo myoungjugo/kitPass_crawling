@@ -1,0 +1,260 @@
+/*
+  컨셉: 매치데이 팀시트 / 더그아웃 보드.
+  경기 전 라커룸 화이트보드에 선수단 명단을 적어두는 느낌 — 짙은 피치나이트 그린 바탕에
+  분필처럼 밝은 텍스트, 가격/사이즈 같은 데이터는 팀시트 숫자처럼 모노스페이스로 정렬.
+  스코어보드 숫자(id=count)는 폴링으로 값이 바뀔 때마다 짧게 깜빡여서, 이 대시보드가
+  "지금도 계속 채워지고 있다"는 걸(점진적 수집) 시각적으로 보여준다.
+*/
+
+:root {
+  --bg: #12201B;
+  --panel: #1B2C25;
+  --line: #2E4238;
+  --ink: #EAF2EC;
+  --ink-dim: #93AC9E;
+  --accent: #F2B33D;
+  --accent-2: #4FAE8C;
+  --danger: #E2634B;
+
+  --font-display: "Oswald", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- 스코어보드 헤더 ---------- */
+
+.board {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: center;
+  gap: 28px;
+  padding: 20px 28px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.board__mark {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+}
+
+.board__score {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.board__count {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 40px;
+  color: var(--ink);
+  transition: color 0.15s ease;
+}
+
+.board__count.pulse { color: var(--accent); }
+
+.board__count-label {
+  font-size: 12px;
+  color: var(--ink-dim);
+  line-height: 1.4;
+}
+.board__count-label small { color: var(--ink-dim); opacity: 0.8; }
+
+.board__sites {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pill {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
+}
+.pill--live { border-color: var(--accent); color: var(--accent); }
+.pill--done { border-color: var(--accent-2); color: var(--accent-2); }
+
+.board__updated {
+  font-size: 12px;
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+
+/* ---------- 컨트롤 바 ---------- */
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 28px;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.controls input,
+.controls select,
+.controls button {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.controls input::placeholder { color: var(--ink-dim); }
+
+#search { min-width: 220px; flex: 1; }
+#max-price { width: 120px; }
+#notify-ceiling { width: 150px; }
+
+.controls button {
+  cursor: pointer;
+  color: var(--ink);
+}
+.controls button:hover { border-color: var(--accent); color: var(--accent); }
+
+.controls__right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.status-text {
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+.status-text.status-text--error { color: var(--danger); }
+
+.controls button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  border-color: var(--line);
+  color: var(--ink-dim);
+}
+
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink-dim);
+  cursor: pointer;
+}
+.switch input { accent-color: var(--accent-2); width: 16px; height: 16px; }
+
+/* ---------- 팀시트 테이블 ---------- */
+
+main { padding: 24px 28px 60px; }
+
+.sheet-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+
+.sheet { width: 100%; border-collapse: collapse; min-width: 640px; }
+
+.sheet thead th {
+  text-align: left;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.sheet tbody tr {
+  border-bottom: 1px solid var(--line);
+}
+.sheet tbody tr:hover { background: rgba(242, 179, 61, 0.05); }
+.sheet tbody tr:last-child { border-bottom: none; }
+
+.sheet td { padding: 10px 14px; font-size: 13.5px; vertical-align: middle; }
+
+.col-img { width: 56px; }
+.col-img img {
+  width: 44px; height: 44px; object-fit: cover;
+  border-radius: 6px; border: 1px solid var(--line); display: block;
+}
+
+.col-title { max-width: 360px; }
+
+.tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+.col-sizes { white-space: nowrap; }
+.size-chip {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-dim);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin-right: 3px;
+}
+
+.col-price {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.col-link a {
+  color: var(--ink-dim);
+  text-decoration: none;
+  font-size: 12.5px;
+  border-bottom: 1px dotted var(--ink-dim);
+}
+.col-link a:hover { color: var(--accent); border-color: var(--accent); }
+
+.empty {
+  text-align: center;
+  color: var(--ink-dim);
+  padding: 60px 20px;
+  font-size: 14px;
+}
+
+/* ---------- 모바일 ---------- */
+
+@media (max-width: 720px) {
+  .board { grid-template-columns: 1fr; gap: 14px; }
+  .controls { flex-direction: column; align-items: stretch; }
+  .controls__right { margin-left: 0; }
+  #search { min-width: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board__count { transition: none; }
+}
