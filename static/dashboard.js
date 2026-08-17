@@ -22,6 +22,7 @@ const els = {
 
 let lastCount = els.count ? Number(els.count.textContent) : 0;
 let debounceTimer = null;
+let cooldownTimer = null; // 쿨타임 카운트다운용 setInterval 핸들
 
 function currentFilterParams() {
   const params = new URLSearchParams();
@@ -91,14 +92,61 @@ function renderCount(count) {
   }
 }
 
+function formatMMSS(totalSec) {
+  const sec = Math.max(0, Math.round(totalSec));
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function clearCooldownTimer() {
+  if (cooldownTimer) {
+    clearInterval(cooldownTimer);
+    cooldownTimer = null;
+  }
+}
+
+// status.status: "idle" | "running" | "cooldown" | "error"
+// 반환값: true면 "폴링을 자주 해야 하는 상태"(=수집 중), false면 뜸하게 폴링해도 됨.
+// cooldown은 로컬 타이머로 카운트다운을 직접 보여주므로 자주 폴링할 필요는 없음.
 function applyCollectionStatus(status) {
-  if (!status) return;
-  const running = status.status === "running";
-  els.collectNow.disabled = running;
-  els.collectNow.textContent = running ? "수집 중…" : "지금 수집하기";
+  if (!status) return false;
+  clearCooldownTimer();
+
+  if (status.status === "running") {
+    els.collectNow.disabled = true;
+    els.collectNow.textContent = "수집 중…";
+    els.collectStatus.classList.remove("status-text--error");
+    els.collectStatus.textContent = "";
+    return true;
+  }
+
+  if (status.status === "cooldown") {
+    els.collectNow.disabled = true;
+    els.collectNow.textContent = "지금 수집하기";
+    els.collectStatus.classList.remove("status-text--error");
+
+    let remaining = status.cooldown_remaining_sec || 0;
+    const tick = () => {
+      if (remaining <= 0) {
+        clearCooldownTimer();
+        els.collectNow.disabled = false;
+        els.collectStatus.textContent = "";
+        return;
+      }
+      els.collectStatus.textContent = `다음 수집까지 ${formatMMSS(remaining)} (사이트 부하 방지용 쿨타임)`;
+      remaining -= 1;
+    };
+    tick();
+    cooldownTimer = setInterval(tick, 1000);
+    return false;
+  }
+
+  els.collectNow.disabled = false;
+  els.collectNow.textContent = "지금 수집하기";
   els.collectStatus.classList.toggle("status-text--error", status.status === "error");
   els.collectStatus.textContent = status.status === "error" ? `오류: ${status.error || "알 수 없음"}` : "";
-  return running;
+  return false;
 }
 
 async function refresh() {
@@ -126,6 +174,7 @@ function schedulePoll() {
       && Object.values(sitesDone).every(Boolean);
     const stillBusy = (state && state.collecting) || !allSitesDone;
     // 수집 중이거나 아직 안 끝난 사이트가 있으면 자주, 다 끝났으면 뜸하게
+    // (쿨타임 카운트다운은 로컬 타이머가 따로 처리하므로 폴링 주기와는 무관)
     setTimeout(schedulePoll, stillBusy ? 2500 : 20000);
   });
 }
@@ -177,8 +226,9 @@ els.collectNow.addEventListener("click", async () => {
     const res = await fetch("/api/collect", { method: "POST" });
     const data = await res.json();
     if (!data.started) {
-      // 이미 다른 요청으로 수집이 돌고 있던 경우 - 상태만 반영
-      console.log("이미 수집이 진행 중입니다.");
+      // 이미 수집 중이거나 쿨타임 중이라 시작 안 됨 — 상태만 반영 (applyCollectionStatus가
+      // running/cooldown에 맞는 버튼 상태와 카운트다운을 알아서 그려줌)
+      console.log("수집이 시작되지 않았습니다:", data.status.status);
     }
     applyCollectionStatus(data.status);
   } catch (e) {

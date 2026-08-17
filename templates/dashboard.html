@@ -49,10 +49,14 @@
   <input id="max-price" type="number" min="0" placeholder="최대 가격">
 
   <div class="controls__right">
-    <button id="collect-now" type="button" {{ 'disabled' if collection_status.status == 'running' else '' }}>
+    <button id="collect-now" type="button" {{ 'disabled' if collection_status.status in ('running', 'cooldown') else '' }}>
       {{ '수집 중…' if collection_status.status == 'running' else '지금 수집하기' }}
     </button>
-    <span id="collect-status" class="status-text"></span>
+    <span id="collect-status" class="status-text">
+      {%- if collection_status.status == 'cooldown' -%}
+        다음 수집까지 {{ collection_status.cooldown_remaining_sec // 60 }}:{{ '%02d'|format(collection_status.cooldown_remaining_sec % 60) }} (사이트 부하 방지용 쿨타임)
+      {%- endif -%}
+    </span>
 
     <button id="download-md" type="button">MD로 저장</button>
     <button id="download-json" type="button">JSON으로 저장</button>
