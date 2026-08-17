@@ -1,5 +1,5 @@
 """
-사용자가 보는 대시보드.
+사용자가 보는 대시보드 (kitPass).
 
 수집기(main.py)가 쓰는 data/results/latest.json을 읽기만 한다 — 이 앱은
 크롤링을 하지 않는다. 수집(main.py, cron 등으로 주기 실행)과 화면(app.py)을
@@ -7,36 +7,90 @@
 
 실행:
     python app.py
-    http://127.0.0.1:8000  (개인용, 외부 노출 없음 — 서버_설정 문서 기준)
+    http://127.0.0.1:8000
+
+인증:
+    ADMIN_PASSWORD 환경변수가 설정되어 있으면 모든 페이지 접근 전에 비밀번호를
+    요구한다 (services/ 쪽이 아니라 여기서 before_request로 막음 — 간단한
+    개인용 게이트이지 정식 사용자 관리는 아님). 설정 안 하면 인증 없이 열림
+    (로컬 개발 편의용 — 배포 전에 반드시 .env에 ADMIN_PASSWORD를 넣을 것).
 
 라우트:
     GET  /                    대시보드 화면
-    GET  /api/results         현재 결과(JSON) — 프론트에서 폴링용
-    GET  /api/notify-settings 알림 설정 조회
-    POST /api/notify-settings 알림 on/off, 가격 상한 저장
+    GET  /login, POST /login  비밀번호 로그인
+    GET  /logout              로그아웃
+    GET  /api/results         현재 결과(JSON, 원화 환산 포함) — 프론트 폴링용
+    GET  /api/collect/status  수집 진행 상태
+    POST /api/collect         '지금 수집하기' 트리거 (백그라운드 스레드)
+    GET  /api/notify-settings, POST /api/notify-settings  알림 on/off, 가격상한
     GET  /download?format=md|json   현재 필터 적용된 리스트 다운로드
 """
 from __future__ import annotations
 
 import json
 import os
-from typing import List
+from typing import List, Optional
 
-from flask import Flask, jsonify, render_template, request, Response
+from flask import Flask, jsonify, redirect, render_template, request, session, url_for, Response
 
 import main as collector  # main.py의 collect_once()를 재사용 (수집 로직 한 곳에만 존재)
 from core.results_store import LATEST_PATH
 from services.collection_runner import get_status, start_collection_if_idle
+from services.fx import get_rates_table, to_krw
 from services.notify_settings import NotifySettings, load_settings, save_settings
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-only-insecure-key-change-me")
+
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+AUTH_ENABLED = bool(ADMIN_PASSWORD)
+
+if not AUTH_ENABLED:
+    print("[app] 경고: ADMIN_PASSWORD가 설정 안 되어 있어 인증 없이 열려 있습니다. "
+          "배포 전에 .env에 ADMIN_PASSWORD를 설정하세요.")
+
+
+@app.before_request
+def require_login():
+    if not AUTH_ENABLED:
+        return
+    if request.endpoint in ("login", "static"):
+        return
+    if not session.get("authed"):
+        return redirect(url_for("login"))
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    error = None
+    if request.method == "POST":
+        password = request.form.get("password", "")
+        if password and password == ADMIN_PASSWORD:
+            session["authed"] = True
+            return redirect(url_for("dashboard"))
+        error = "비밀번호가 올바르지 않습니다."
+    return render_template("login.html", error=error)
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
 
 
 def _read_snapshot() -> dict:
     if not os.path.exists(LATEST_PATH):
-        return {"generated_at": None, "started_at": None, "sites_done": {}, "count": 0, "items": []}
-    with open(LATEST_PATH, encoding="utf-8") as f:
-        return json.load(f)
+        data = {"generated_at": None, "started_at": None, "sites_done": {}, "count": 0, "items": []}
+    else:
+        with open(LATEST_PATH, encoding="utf-8") as f:
+            data = json.load(f)
+
+    # 원화 환산은 여기서 한 번만 rates 테이블을 받아서 전체 아이템에 적용한다
+    # (아이템마다 get_rates_table()을 부르면 그때마다 캐시 확인 오버헤드가 반복됨).
+    rates = get_rates_table()
+    for item in data.get("items", []):
+        item["price_krw"] = to_krw(item["price"], item["currency"], rates=rates)
+    return data
 
 
 def _apply_filters(items: List[dict]) -> List[dict]:
@@ -72,6 +126,7 @@ def dashboard():
         notify=notify,
         sites=sites,
         collection_status=get_status(),
+        auth_enabled=AUTH_ENABLED,
     )
 
 
@@ -122,22 +177,23 @@ def download():
         body = json.dumps(items, ensure_ascii=False, indent=2)
         return Response(
             body, mimetype="application/json",
-            headers={"Content-Disposition": "attachment; filename=uniforms.json"},
+            headers={"Content-Disposition": "attachment; filename=kitpass-uniforms.json"},
         )
 
     body = _to_markdown(items)
     return Response(
         body, mimetype="text/markdown",
-        headers={"Content-Disposition": "attachment; filename=uniforms.md"},
+        headers={"Content-Disposition": "attachment; filename=kitpass-uniforms.md"},
     )
 
 
 def _to_markdown(items: List[dict]) -> str:
-    lines = ["| 사이트 | 상품명 | 가격 | 사이즈 | 링크 |", "|---|---|---|---|---|"]
+    lines = ["| 사이트 | 상품명 | 가격 | 원화 환산 | 사이즈 | 링크 |", "|---|---|---|---|---|---|"]
     for it in items:
         title = it["title"].replace("|", "\\|")
         sizes = ", ".join(it.get("sizes_in_stock", []))
-        lines.append(f"| {it['site']} | {title} | {it['price']} {it['currency']} | {sizes} | {it['url']} |")
+        krw = f"₩{it['price_krw']:,}" if it.get("price_krw") is not None else "-"
+        lines.append(f"| {it['site']} | {title} | {it['price']} {it['currency']} | {krw} | {sizes} | {it['url']} |")
     return "\n".join(lines)
 
 

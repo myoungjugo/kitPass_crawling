@@ -7,7 +7,7 @@ const els = {
   count: document.getElementById("count"),
   sitesWrap: document.getElementById("sites"),
   updatedAt: document.getElementById("updated-at"),
-  sheetBody: document.getElementById("sheet-body"),
+  grid: document.getElementById("grid"),
   emptyState: document.getElementById("empty-state"),
   search: document.getElementById("search"),
   siteFilter: document.getElementById("site-filter"),
@@ -40,22 +40,36 @@ function escapeHtml(str) {
 
 function renderRows(items) {
   if (!items.length) {
-    els.sheetBody.innerHTML = "";
+    els.grid.innerHTML = "";
     els.emptyState.hidden = false;
     return;
   }
   els.emptyState.hidden = true;
 
-  els.sheetBody.innerHTML = items.map((item) => `
-    <tr>
-      <td class="col-img">${item.image ? `<img src="${escapeHtml(item.image)}" loading="lazy" alt="">` : ""}</td>
-      <td class="col-title">${escapeHtml(item.title)}</td>
-      <td><span class="tag">${escapeHtml(item.site)}</span></td>
-      <td class="col-sizes">${item.sizes_in_stock.map((s) => `<span class="size-chip">${escapeHtml(s)}</span>`).join("")}</td>
-      <td class="col-price">${item.price.toFixed(2)} ${escapeHtml(item.currency)}</td>
-      <td class="col-link"><a href="${escapeHtml(item.url)}" target="_blank" rel="noopener">보러가기</a></td>
-    </tr>
-  `).join("");
+  els.grid.innerHTML = items.map((item) => {
+    const image = item.image
+      ? `<img src="${escapeHtml(item.image)}" loading="lazy" alt="${escapeHtml(item.title)}">`
+      : `<div class="card__image-placeholder">${escapeHtml((item.site || "?").slice(0, 1).toUpperCase())}</div>`;
+    const krw = item.price_krw != null
+      ? `<span class="card__price-krw">≈ ₩${item.price_krw.toLocaleString("ko-KR")}</span>`
+      : "";
+    return `
+      <a class="card" href="${escapeHtml(item.url)}" target="_blank" rel="noopener">
+        <div class="card__image-wrap">
+          ${image}
+          <span class="card__tag">${escapeHtml(item.site)}</span>
+        </div>
+        <div class="card__body">
+          <p class="card__title">${escapeHtml(item.title)}</p>
+          <div class="card__sizes">${item.sizes_in_stock.map((s) => `<span class="size-chip">${escapeHtml(s)}</span>`).join("")}</div>
+          <div class="card__price-row">
+            <span class="card__price">${item.price.toFixed(2)} ${escapeHtml(item.currency)}</span>
+            ${krw}
+          </div>
+        </div>
+      </a>
+    `;
+  }).join("");
 }
 
 function renderSites(sitesDone) {

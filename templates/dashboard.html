@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>유니폼 트래커</title>
+<title>kitPass</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
@@ -11,7 +11,7 @@
 <body>
 
 <header class="board">
-  <div class="board__mark">UNIFORM TRACKER</div>
+  <div class="board__mark">kitPass</div>
 
   <div class="board__score">
     <span id="count" class="board__count">{{ count }}</span>
@@ -25,12 +25,13 @@
       </span>
     {% endfor %}
     {% if not sites_done %}
-      <span class="pill">아직 수집 실행 전이에요 — main.py를 먼저 돌려주세요</span>
+      <span class="pill">아직 수집 실행 전이에요 — 아래 "지금 수집하기"를 눌러주세요</span>
     {% endif %}
   </div>
 
   <div class="board__updated">
     마지막 갱신 <span id="updated-at">{{ generated_at or '-' }}</span>
+    {% if auth_enabled %}<a class="logout" href="{{ url_for('logout') }}">로그아웃</a>{% endif %}
   </div>
 </header>
 
@@ -65,38 +66,38 @@
 </section>
 
 <main>
-  <div class="sheet-wrap">
-    <table class="sheet">
-      <thead>
-        <tr>
-          <th class="col-img"></th>
-          <th>상품</th>
-          <th>사이트</th>
-          <th>사이즈</th>
-          <th class="col-price">가격</th>
-          <th class="col-link"></th>
-        </tr>
-      </thead>
-      <tbody id="sheet-body">
-        {% for item in items %}
-        <tr>
-          <td class="col-img">{% if item.image %}<img src="{{ item.image }}" loading="lazy" alt="">{% endif %}</td>
-          <td class="col-title">{{ item.title }}</td>
-          <td><span class="tag">{{ item.site }}</span></td>
-          <td class="col-sizes">
-            {% for s in item.sizes_in_stock %}<span class="size-chip">{{ s }}</span>{% endfor %}
-          </td>
-          <td class="col-price">{{ "%.2f"|format(item.price) }} {{ item.currency }}</td>
-          <td class="col-link"><a href="{{ item.url }}" target="_blank" rel="noopener">보러가기</a></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="grid" id="grid">
+    {% for item in items %}
+    <a class="card" href="{{ item.url }}" target="_blank" rel="noopener">
+      <div class="card__image-wrap">
+        {% if item.image %}
+          <img src="{{ item.image }}" loading="lazy" alt="{{ item.title }}">
+        {% else %}
+          <div class="card__image-placeholder">{{ item.site[:1]|upper }}</div>
+        {% endif %}
+        <span class="card__tag">{{ item.site }}</span>
+      </div>
+      <div class="card__body">
+        <p class="card__title">{{ item.title }}</p>
+        <div class="card__sizes">
+          {% for s in item.sizes_in_stock %}<span class="size-chip">{{ s }}</span>{% endfor %}
+        </div>
+        <div class="card__price-row">
+          <span class="card__price">{{ "%.2f"|format(item.price) }} {{ item.currency }}</span>
+          {% if item.price_krw is not none %}
+            <span class="card__price-krw">≈ ₩{{ "{:,}".format(item.price_krw) }}</span>
+          {% endif %}
+        </div>
+      </div>
+    </a>
+    {% endfor %}
   </div>
 
   <p class="empty" id="empty-state" {{ '' if not items else 'hidden' }}>
-    조건에 맞는 상품이 아직 없어요. 수집이 끝나면 여기 나타납니다.
+    조건에 맞는 상품이 아직 없어요. 위에서 "지금 수집하기"를 눌러보세요.
   </p>
+
+  <p class="fx-attribution">환율: exchangerate-api.com (하루 1회 갱신, 실시간 아님)</p>
 </main>
 
 <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
