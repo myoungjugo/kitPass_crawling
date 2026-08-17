@@ -26,6 +26,11 @@ class Product:
     # (title만 있는 곳도 있고, title+category가 더 정확한 곳도 있음) fetcher가 채워 넣는다.
     # 비어있으면 필터 단계에서 title로 대체한다.
     classification_text: str = ""
+    # NEW: 상품 상태 텍스트 (예: "Brand New - With Tags"). 쇼핑몰 리스트(수정됨) 문서의
+    # condition 조건 판별에 쓰인다 (services.filters.is_target_condition).
+    # CFS만 채워 넣고, 아직 condition 파싱을 안 하는 다른 사이트 fetcher는 기본값(빈 문자열)
+    # 그대로 둬도 된다 — 기존 fetcher(cultkits.py, kitbag.py)는 코드 변경 불필요.
+    condition: str = ""
 
     def __post_init__(self):
         if not self.classification_text:
