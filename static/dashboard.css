@@ -361,3 +361,67 @@ main { padding: 24px 28px 40px; }
   .board__count { transition: none; }
   .card { transition: none; }
 }
+
+/* ---------- 장바구니 담기 버튼 ---------- */
+
+.card__cart-btn {
+  margin-top: 10px;
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.card__cart-btn:hover { border-color: var(--accent); color: var(--accent); }
+.card__cart-btn--added {
+  background: var(--accent-2);
+  border-color: var(--accent-2);
+  color: var(--bg);
+}
+.card__cart-btn--added:hover { opacity: 0.9; color: var(--bg); }
+
+
+/* ---------- 지금 수집하기 버튼 상태 ---------- */
+
+#collect-now {
+  font-weight: 600;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+/* 수집 안 하고 있을 때: 초록 (완료 pill과 같은 색) */
+#collect-now:not(:disabled) {
+  border-color: var(--accent-2);
+  color: var(--bg);
+  background: var(--accent-2);
+}
+#collect-now:not(:disabled):hover {
+  opacity: 0.88;
+  color: var(--bg);
+  border-color: var(--accent-2);
+}
+
+/* 수집 중일 때: 주황 + 깜빡임 (쿨타임 중인 회색 disabled와는 다르게 보이도록
+   :disabled보다 우선하게 ID 선택자로 덮어씀) */
+#collect-now.is-running:disabled {
+  opacity: 1;
+  border-color: var(--accent);
+  color: var(--bg);
+  background: var(--accent);
+  animation: collect-pulse 1.3s ease-in-out infinite;
+  cursor: default;
+}
+
+@keyframes collect-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #collect-now.is-running:disabled { animation: none; opacity: 1; }
+}

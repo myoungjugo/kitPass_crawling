@@ -19,6 +19,10 @@ app.py는 그 결과를 읽어서 보여주기만 하므로 대시보드를 아�
 """
 from __future__ import annotations
 
+from dotenv import load_dotenv
+load_dotenv()  # .env 값을 os.environ에 실제로 올림. 이게 없으면 core.config가
+                # import될 때 fetchers/kitbag.py 등이 읽는 KITBAG_* 값도 전부 무시됨.
+
 import time
 
 from core.config import get_active_fetchers

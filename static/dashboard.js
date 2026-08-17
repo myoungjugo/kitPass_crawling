@@ -5,6 +5,7 @@
 
 const els = {
   count: document.getElementById("count"),
+  cartCount: document.getElementById("cart-count"),
   sitesWrap: document.getElementById("sites"),
   updatedAt: document.getElementById("updated-at"),
   grid: document.getElementById("grid"),
@@ -12,6 +13,8 @@ const els = {
   search: document.getElementById("search"),
   siteFilter: document.getElementById("site-filter"),
   maxPrice: document.getElementById("max-price"),
+  genderFilter: document.getElementById("gender-filter"),
+  sleeveFilter: document.getElementById("sleeve-filter"),
   downloadMd: document.getElementById("download-md"),
   downloadJson: document.getElementById("download-json"),
   notifyToggle: document.getElementById("notify-toggle"),
@@ -29,6 +32,8 @@ function currentFilterParams() {
   if (els.search.value.trim()) params.set("q", els.search.value.trim());
   if (els.siteFilter.value) params.set("site", els.siteFilter.value);
   if (els.maxPrice.value) params.set("max_price", els.maxPrice.value);
+  if (els.genderFilter.value) params.set("gender", els.genderFilter.value);
+  if (els.sleeveFilter.value) params.set("sleeve", els.sleeveFilter.value);
   return params;
 }
 
@@ -54,6 +59,7 @@ function renderRows(items) {
     const krw = item.price_krw != null
       ? `<span class="card__price-krw">≈ ₩${item.price_krw.toLocaleString("ko-KR")}</span>`
       : "";
+    const inCart = isInCart(item.product_id);
     return `
       <a class="card" href="${escapeHtml(item.url)}" target="_blank" rel="noopener">
         <div class="card__image-wrap">
@@ -67,11 +73,53 @@ function renderRows(items) {
             <span class="card__price">${item.price.toFixed(2)} ${escapeHtml(item.currency)}</span>
             ${krw}
           </div>
+          <button type="button" class="card__cart-btn ${inCart ? "card__cart-btn--added" : ""}"
+                  data-product-id="${escapeHtml(item.product_id)}"
+                  data-title="${escapeHtml(item.title)}"
+                  data-price="${item.price}"
+                  data-currency="${escapeHtml(item.currency)}"
+                  data-image="${escapeHtml(item.image || "")}"
+                  data-url="${escapeHtml(item.url)}"
+                  data-site="${escapeHtml(item.site)}">
+            ${inCart ? "장바구니 담김 ✓" : "장바구니 담기"}
+          </button>
         </div>
       </a>
     `;
   }).join("");
 }
+
+function updateCartBadge() {
+  if (els.cartCount) els.cartCount.textContent = cartCount();
+}
+
+// 카드가 <a>라서 버튼 클릭도 기본적으로 링크 이동을 트리거함 -> 여기서 막는다.
+els.grid.addEventListener("click", (e) => {
+  const btn = e.target.closest(".card__cart-btn");
+  if (!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+
+  const productId = btn.dataset.productId;
+  if (isInCart(productId)) {
+    removeFromCart(productId);
+  } else {
+    addToCart({
+      product_id: productId,
+      title: btn.dataset.title,
+      price: btn.dataset.price,
+      currency: btn.dataset.currency,
+      image: btn.dataset.image,
+      url: btn.dataset.url,
+      site: btn.dataset.site,
+    });
+  }
+  const nowInCart = isInCart(productId);
+  btn.classList.toggle("card__cart-btn--added", nowInCart);
+  btn.textContent = nowInCart ? "장바구니 담김 ✓" : "장바구니 담기";
+});
+
+window.addEventListener("kitpass-cart-changed", updateCartBadge);
 
 function renderSites(sitesDone) {
   const entries = Object.entries(sitesDone || {});
@@ -109,17 +157,24 @@ function clearCooldownTimer() {
 // status.status: "idle" | "running" | "cooldown" | "error"
 // 반환값: true면 "폴링을 자주 해야 하는 상태"(=수집 중), false면 뜸하게 폴링해도 됨.
 // cooldown은 로컬 타이머로 카운트다운을 직접 보여주므로 자주 폴링할 필요는 없음.
+const ORIGINAL_TITLE = document.title;
+
 function applyCollectionStatus(status) {
   if (!status) return false;
   clearCooldownTimer();
 
   if (status.status === "running") {
     els.collectNow.disabled = true;
+    els.collectNow.classList.add("is-running");
     els.collectNow.textContent = "수집 중…";
     els.collectStatus.classList.remove("status-text--error");
     els.collectStatus.textContent = "";
     return true;
   }
+
+  els.collectNow.classList.remove("is-running");
+
+  
 
   if (status.status === "cooldown") {
     els.collectNow.disabled = true;
@@ -184,7 +239,7 @@ function debouncedRefresh() {
   debounceTimer = setTimeout(refresh, 250);
 }
 
-[els.search, els.siteFilter, els.maxPrice].forEach((el) => {
+[els.search, els.siteFilter, els.maxPrice, els.genderFilter, els.sleeveFilter].forEach((el) => {
   el.addEventListener("input", debouncedRefresh);
 });
 
@@ -238,4 +293,5 @@ els.collectNow.addEventListener("click", async () => {
   }
 });
 
+updateCartBadge();
 schedulePoll();

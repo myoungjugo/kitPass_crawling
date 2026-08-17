@@ -167,3 +167,66 @@
 @media (max-width: 600px) {
   .calc-grid { grid-template-columns: 1fr; }
 }
+
+/* ---------- 장바구니 체크리스트 ---------- */
+
+.cart-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.cart-select-all {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink-dim);
+  cursor: pointer;
+}
+.cart-select-all input { accent-color: var(--accent-2); width: 16px; height: 16px; }
+
+.cart-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.cart-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--line);
+}
+.cart-item:last-child { border-bottom: none; }
+.cart-item__check { accent-color: var(--accent-2); width: 16px; height: 16px; flex-shrink: 0; }
+.cart-item img {
+  width: 40px; height: 40px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: #0E1712;
+  flex-shrink: 0;
+}
+.cart-item__info { flex: 1; min-width: 0; }
+.cart-item__title {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cart-item__meta { margin: 2px 0 0; font-size: 11.5px; color: var(--ink-dim); }
+.cart-item__remove {
+  background: none;
+  border: none;
+  color: var(--ink-dim);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 6px;
+  flex-shrink: 0;
+}
+.cart-item__remove:hover { color: var(--danger); }

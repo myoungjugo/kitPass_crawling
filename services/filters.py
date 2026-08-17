@@ -21,7 +21,9 @@ from core.models import Product
 # 이 중 하나라도 포함되어야 "유니폼 후보"로 취급
 _INCLUDE_KEYWORDS = ["shirt", "jersey"]
 
-# 후보였더라도 이 키워드가 있으면 제외 (트레이닝복/액세서리/기타 굿즈)
+# 2026-08-17: 쇼핑몰_필터링_조건 문서 반영. kitbag에서 어린이용 유니폼
+# ("Baby Kit", "- Kids", "- Infants" 등)이 실제로 섞여 나오는 게 확인돼서
+# 어린이용/여성용/긴팔/구버전 제외 키워드를 추가함.
 _EXCLUDE_KEYWORDS = [
     "gift card", "voucher",
     "training", "hoodie", "jacket", "track top", "tracksuit",
@@ -31,6 +33,19 @@ _EXCLUDE_KEYWORDS = [
     "gilet", "boots", "mystery box",
     # "shirt"를 부분 문자열로 포함하지만 유니폼이 아닌 케이스
     "t-shirt", "tee",
+
+    # --- 어린이용 제외 (성인용만) ---
+    "kids", "kid's", "junior", "juniors", "youth", "toddler", "infant",
+    "baby", "babykit", "baby kit", "mini kit", "minikit", "children",
+    "newborn", "romper",
+
+    # --- 여성용 제외 (남자 유니폼만) ---
+    "womens", "women's", "ladies", "girls", "girl's",
+
+    # --- 긴팔 제외 (반팔만) ---
+    "long sleeve",
+
+   
 ]
 
 
@@ -49,8 +64,10 @@ _SIZE_ALIASES = {
     "s": "S", "small": "S", "sm": "S",
     "m": "M", "medium": "M", "med": "M",
     "l": "L", "large": "L", "lg": "L",
+    "xl": "XL", "extra large": "XL", "x-large": "XL", "xlarge": "XL",
 }
-TARGET_SIZES = {"S", "M", "L"}
+# 2026-08-17: 쇼핑몰_필터링_조건 문서 기준 S/M/L에 XL 추가.
+TARGET_SIZES = {"S", "M", "L", "XL"}
 
 
 def normalize_size(raw: str) -> Optional[str]:

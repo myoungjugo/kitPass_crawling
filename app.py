@@ -29,13 +29,17 @@
 """
 from __future__ import annotations
 
+from dotenv import load_dotenv
+load_dotenv()  # ADMIN_PASSWORD 등 .env 값을 실제로 로드 (2026-08-17 발견: 지금까지
+                # 어디서도 호출 안 해서 .env가 통째로 무시되고 있었음 — 인증 안 먹던 원인)
+
 import json
 import os
 from typing import List, Optional
 
 from flask import Flask, jsonify, redirect, render_template, request, session, url_for, Response
 
-import main as collector  # main.py의 collect_once()를 재사용 (수집 로직 한 곳에만 존재)
+import main as collector # main.py의 collect_once()를 재사용 (수집 로직 한 곳에만 존재)
 from core.results_store import LATEST_PATH
 from services.collection_runner import get_status, start_collection_if_idle
 from services.fx import get_rates_table, to_krw
@@ -92,13 +96,30 @@ def _read_snapshot() -> dict:
     rates = get_rates_table()
     for item in data.get("items", []):
         item["price_krw"] = to_krw(item["price"], item["currency"], rates=rates)
+        item["gender"] = _classify_gender(item["title"])
+        item["sleeve"] = _classify_sleeve(item["title"])
     return data
+
+_WOMEN_HINTS = ("womens", "women's", "ladies", "girls", "girl's")
+
+
+def _classify_gender(title: str) -> str:
+    t = title.lower()
+    return "women" if any(h in t for h in _WOMEN_HINTS) else "men"
+
+
+def _classify_sleeve(title: str) -> str:
+    return "long" if "long sleeve" in title.lower() else "short"
+
+
 
 
 def _apply_filters(items: List[dict]) -> List[dict]:
     q = (request.args.get("q") or "").strip().lower()
     site = request.args.get("site") or ""
     max_price_raw = request.args.get("max_price")
+    gender = request.args.get("gender") or ""   # "", "men", "women"
+    sleeve = request.args.get("sleeve") or ""    # "", "short", "long"
 
     result = items
     if q:
@@ -111,6 +132,10 @@ def _apply_filters(items: List[dict]) -> List[dict]:
             result = [i for i in result if i["price"] <= max_price]
         except ValueError:
             pass
+    if gender:
+        result = [i for i in result if i.get("gender") == gender]
+    if sleeve:
+        result = [i for i in result if i.get("sleeve") == sleeve]
     return result
 
 

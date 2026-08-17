@@ -15,7 +15,7 @@
 
   <div class="board__score">
     <span id="count" class="board__count">{{ count }}</span>
-    <span class="board__count-label">벌 조건 충족<br><small>축구팀 유니폼 · S/M/L 재고 있음</small></span>
+    <span class="board__count-label">벌 조건 충족<br><small>축구팀 유니폼 · S/M/L/XL 재고 있음</small></span>
   </div>
 
   <div class="board__sites" id="sites">
@@ -30,8 +30,12 @@
   </div>
 
   <div class="board__updated">
+
+
+
+  <div class="board__updated">
     마지막 갱신 <span id="updated-at">{{ generated_at or '-' }}</span>
-    <a class="logout" href="{{ url_for('calculator') }}">원가 계산기</a>
+    <a class="logout" href="{{ url_for('calculator') }}">장바구니 (<span id="cart-count">0</span>)</a>
     {% if auth_enabled %}<a class="logout" href="{{ url_for('logout') }}">로그아웃</a>{% endif %}
   </div>
 </header>
@@ -47,6 +51,18 @@
   </select>
 
   <input id="max-price" type="number" min="0" placeholder="최대 가격">
+
+  <select id="gender-filter">
+    <option value="men" selected>남성용</option>
+    <option value="women">여성용</option>
+    <option value="">성별 전체</option>
+  </select>
+
+  <select id="sleeve-filter">
+    <option value="short" selected>반팔</option>
+    <option value="long">긴팔</option>
+    <option value="">기장 전체</option>
+  </select>
 
   <div class="controls__right">
     <button id="collect-now" type="button" {{ 'disabled' if collection_status.status in ('running', 'cooldown') else '' }}>
@@ -93,6 +109,16 @@
             <span class="card__price-krw">≈ ₩{{ "{:,}".format(item.price_krw) }}</span>
           {% endif %}
         </div>
+        <button type="button" class="card__cart-btn"
+                data-product-id="{{ item.product_id }}"
+                data-title="{{ item.title }}"
+                data-price="{{ item.price }}"
+                data-currency="{{ item.currency }}"
+                data-image="{{ item.image or '' }}"
+                data-url="{{ item.url }}"
+                data-site="{{ item.site }}">
+          장바구니 담기
+        </button>
       </div>
     </a>
     {% endfor %}
@@ -105,6 +131,7 @@
   <p class="fx-attribution">환율: exchangerate-api.com (하루 1회 갱신, 실시간 아님)</p>
 </main>
 
+<script src="{{ url_for('static', filename='cart-store.js') }}"></script>
 <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
 </body>
 </html>
