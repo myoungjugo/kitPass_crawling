@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kitPass · 원가 계산기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='calculator.css') }}">
+</head>
+<body>
+
+<header class="board">
+  <div class="board__mark">kitPass</div>
+  <div class="board__updated">
+    <a class="calc-nav-link" href="{{ url_for('dashboard') }}">← 대시보드로</a>
+    {% if auth_enabled %}<a class="logout" href="{{ url_for('logout') }}">로그아웃</a>{% endif %}
+  </div>
+</header>
+
+<main class="calc-main">
+  <h1 class="calc-title">유니폼 원가 계산기</h1>
+  <p class="calc-sub">상품가 + 배송비 + 해외결제 수수료 + 관세/부가세(추정)를 합쳐서 실제 부담 금액을 원화로 계산합니다.</p>
+
+  <section class="calc-panel">
+    <label class="calc-label" for="item-search">상품 검색 (리스트에서 선택)</label>
+    <input id="item-search" class="calc-input" type="search" placeholder="상품명으로 검색...">
+    <ul id="item-results" class="calc-results"></ul>
+    <div id="selected-item-info" class="calc-selected"></div>
+  </section>
+
+  <section class="calc-panel calc-grid">
+    <div class="calc-field">
+      <label class="calc-label" for="item-price">상품가</label>
+      <input id="item-price" class="calc-input" type="number" min="0" step="0.01" value="0">
+    </div>
+    <div class="calc-field">
+      <label class="calc-label" for="item-currency">통화</label>
+      <select id="item-currency" class="calc-input">
+        <option value="GBP">GBP</option>
+        <option value="USD">USD</option>
+        <option value="EUR">EUR</option>
+        <option value="KRW">KRW</option>
+      </select>
+    </div>
+    <div class="calc-field">
+      <label class="calc-label" for="shipping-amount">배송비</label>
+      <input id="shipping-amount" class="calc-input" type="number" min="0" step="0.01" value="0">
+    </div>
+    <div class="calc-field">
+      <label class="calc-label" for="shipping-currency">배송비 통화</label>
+      <select id="shipping-currency" class="calc-input">
+        <option value="KRW">KRW</option>
+        <option value="GBP">GBP</option>
+        <option value="USD">USD</option>
+        <option value="EUR">EUR</option>
+      </select>
+    </div>
+    <div class="calc-field">
+      <label class="calc-label" for="card-fee-pct">해외결제 수수료 (%)</label>
+      <input id="card-fee-pct" class="calc-input" type="number" min="0" step="0.01" value="0.2">
+    </div>
+    <div class="calc-field">
+      <label class="calc-label" for="deminimis-mode">면세 기준</label>
+      <select id="deminimis-mode" class="calc-input">
+        <option value="general">일반 (약 $150)</option>
+        <option value="us">미국 직배송 (약 $200, 한미FTA)</option>
+      </select>
+    </div>
+    <div class="calc-field">
+      <label class="calc-label" for="duty-rate-pct">관세율 (%, 면세 초과 시)</label>
+      <input id="duty-rate-pct" class="calc-input" type="number" min="0" step="0.1" value="8">
+    </div>
+    <div class="calc-field">
+      <label class="calc-label" for="vat-rate-pct">부가세율 (%, 면세 초과 시)</label>
+      <input id="vat-rate-pct" class="calc-input" type="number" min="0" step="0.1" value="10">
+    </div>
+  </section>
+
+  <section class="calc-panel calc-result-panel">
+    <div id="breakdown" class="calc-breakdown"></div>
+    <div class="calc-total-row">
+      <span>예상 총 원가</span>
+      <span id="total-krw" class="calc-total">-</span>
+    </div>
+  </section>
+
+  <p class="calc-disclaimer">
+    ⚠️ 관세율/부가세율/면세 기준은 품목(HS코드)이나 통관 시점 관세청 고시환율에 따라 실제와
+    다를 수 있는 참고용 추정치입니다. 정확한 금액은 관세청 또는 통관 대행업체를 통해
+    확인하세요. 환율도 실시간이 아닌 최대 1시간 캐시된 값입니다 (출처: exchangerate-api.com).
+  </p>
+</main>
+
+<script src="{{ url_for('static', filename='calculator.js') }}"></script>
+</body>
+</html>

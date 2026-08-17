@@ -23,6 +23,22 @@ Shopify의 공개 products.json은 로그인 없이 전체 카탈로그를 페�
       "카탈로그가 끝났다"는 신호(진짜 빈 응답, [])와는 명확히 구분한다.
     - 한 배치의 모든 페이지가 실패하면(사이트 다운 등) 무한루프를 막기 위해
       MAX_CONSECUTIVE_FAILED_BATCHES번 연속 실패 시 중단한다.
+
+## 진단 로그 추가 (이번에 바뀐 것)
+"요청은 다 성공했는데 최종 상품이 0개"인 문제가 있어서 원인 추적용 로그를 추가했다.
+중요한 점: core/results_store.py의 필터 진단 로그는 on_batch()가 호출돼야 찍히는데,
+_parse_product()에서 가격/사이즈가 없어 전부 None으로 걸러지면 batch_products가
+비어서 on_batch() 자체가 안 불린다 -> 그 경우엔 results_store 쪽 로그가 아예 안 찍힘.
+그래서 여기, 파싱 단계에서 별도로 "원본 상품 수 대비 파싱 성공 수"와 실패 샘플
+(가격 없음 / 사이즈 없음)을 첫 페이지에서 한 번 찍도록 `_log_parse_stats_once()`를
+추가했다. 파싱 로직 자체는 안 바뀌었다 — 순수 로깅만 추가.
+## 진단 로그 (이번에 리팩터링)
+"요청은 다 성공했는데 최종 상품이 0개"인 문제 추적용 로그를 처음엔 여기 파일 안에
+직접 짰는데, core/results_store.py의 필터 진단 로그와 보일러플레이트(한 번만 찍기/
+샘플 모으기/정리해서 출력)가 겹쳐서 core/diagnostics.py의 ParseStatsLogger 공통
+유틸로 옮겼다. "무엇을 실패 원인으로 볼지"(재고 있는 variant 없음/price 없음/
+size 없음)는 Shopify 데이터 구조에 특화된 판단이라 여기 그대로 남아있다 — 공통화한
+건 로깅 뼈대뿐이고 파싱 로직 자체는 안 바뀌었다.
 """
 from __future__ import annotations
 
@@ -32,7 +48,7 @@ from typing import List, Optional
 
 import requests
 
-from core.diagnostics import Diagnostics
+from core.diagnostics import Diagnostics, ParseStatsLogger
 from core.models import Product
 from services.http_client import make_session, get_with_retry, FetchFailed
 from .base import BaseFetcher, OnBatch
@@ -59,6 +75,7 @@ class CultKitsFetcher(BaseFetcher):
 
     def __init__(self, session: Optional[requests.Session] = None):
         self.session = session or make_session()
+        self._parse_logger = ParseStatsLogger(site=self.site_name, stage="PARSE")
 
     def _fetch_page(self, page: int, diag: Diagnostics) -> list:
         """page 하나를 요청해서 원본 products 배열(list[dict])을 반환.
@@ -106,6 +123,37 @@ class CultKitsFetcher(BaseFetcher):
             classification_text=title,
         )
 
+    def _log_parse_stats_once(self, raw_products: list) -> None:
+        """첫 페이지에서 한 번만: 원본 상품 수 대비 파싱 성공 수, 실패 원인 샘플을 찍는다.
+        "무엇이 실패 원인인지" 분류하는 이 로직은 Shopify variants 구조에 특화된 거라
+        여기 그대로 두고, 로깅 뼈대(한 번만/샘플 모으기/출력)만 ParseStatsLogger에 맡긴다."""
+        if not self._parse_logger.should_log():
+            return
+        if not raw_products:
+            return
+
+        for p in raw_products:
+            variants = p.get("variants", [])
+            available_variants = [v for v in variants if v.get("available")]
+            title = p.get("title", "")
+
+            if not available_variants:
+                self._parse_logger.add_sample("재고 있는 variant 없음", title)
+                continue
+
+            product = self._parse_product(p)
+            if product:
+                self._parse_logger.mark_ok()
+                continue
+
+            has_price = any(v.get("price") for v in available_variants)
+            if not has_price:
+                self._parse_logger.add_sample("price 없음", title)
+            else:
+                self._parse_logger.add_sample("size(option) 없음", title)
+
+        self._parse_logger.print_summary(total=len(raw_products))
+
     def fetch(self, on_batch: OnBatch) -> None:
         start_page = 1
         stop = False
@@ -129,6 +177,9 @@ class CultKitsFetcher(BaseFetcher):
                     except FetchFailed as e:
                         print(f"  [DEBUG] page {page} 재시도 끝까지 실패, 스킵: {e}")
                         results[page] = None
+
+            if start_page == 1 and results.get(1):
+                self._log_parse_stats_once(results[1])
 
             batch_products: List[Product] = []
             for page in page_numbers:

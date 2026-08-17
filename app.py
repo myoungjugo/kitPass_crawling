@@ -24,6 +24,8 @@
     POST /api/collect         '지금 수집하기' 트리거 (백그라운드 스레드)
     GET  /api/notify-settings, POST /api/notify-settings  알림 on/off, 가격상한
     GET  /download?format=md|json   현재 필터 적용된 리스트 다운로드
+    GET  /calculator           유니폼 원가 계산기 페이지
+    GET  /api/fx-rates         계산기가 쓰는 환율 테이블 (services/fx.py 캐시 그대로 반환)
 """
 from __future__ import annotations
 
@@ -165,6 +167,21 @@ def api_notify_settings():
     settings = NotifySettings(enabled=bool(data.get("enabled")), price_ceiling=ceiling)
     save_settings(settings)
     return jsonify(settings.__dict__)
+
+
+@app.route("/calculator")
+def calculator():
+    """유니폼 원가 계산기 페이지. 서버는 빈 화면만 내려주고, 상품 검색/선택/계산은
+    전부 프론트(static/calculator.js)가 /api/results, /api/fx-rates를 불러서 처리한다."""
+    return render_template("calculator.html", auth_enabled=AUTH_ENABLED)
+
+
+@app.route("/api/fx-rates")
+def api_fx_rates():
+    """계산기 페이지가 상품가/배송비 통화를 원화로 환산할 때 쓰는 환율 테이블.
+    services/fx.py가 이미 캐싱해둔 것을 그대로 반환한다 (여기서 새로 API를 부르지 않음)."""
+    rates = get_rates_table()
+    return jsonify({"rates": rates or {}})
 
 
 @app.route("/download")
